@@ -131,8 +131,8 @@ jobs:
           echo "CONFIG_KPM=n" >> $DEFCONFIG
 
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> $DEFCONFIG
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> $DEFCONFIG
-          echo "CONFIG_KSU_KPROBES_HOOK=n" >> $DEFCONFIG
+          echo "CONFIG_KSU_MANUAL_HOOK=n" >> $DEFCONFIG
+          echo "CONFIG_KSU_KPROBES_HOOK=y" >> $DEFCONFIG
           
           # Add SUSFS configuration settings
           echo "CONFIG_KSU_SUSFS=y" >> $DEFCONFIG
@@ -168,10 +168,6 @@ jobs:
           echo "CONFIG_TCP_CONG_WESTWOOD=n" >> $DEFCONFIG
           echo "CONFIG_TCP_CONG_HTCP=n" >> $DEFCONFIG 
           echo "CONFIG_DEFAULT_BBR=y" >> $DEFCONFIG 
-
-          echo "Patching Manual Hook"
-          curl -s https://raw.githubusercontent.com/GotenAjje/gki-builder/refs/heads/main/manual-hook-v1.4.patch | patch -p1
-          echo "Manual Hook Patched"
 
       - name: Remove check_defconfig
         run: |
