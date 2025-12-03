@@ -87,8 +87,8 @@ jobs:
       - name: Apply Upstream Rama
         run: |
           cd $GKI_DIR/common
-          echo "Applying upstream gotenAjje 5.10.246"
-          git remote add rama https://github.com/GotenAjje/android_kernel_common-5.10.git
+          echo "Applying upstream rama 5.10.246"
+          git remote add rama https://github.com/ramabondanp/android_kernel_common-5.10.git
           git fetch -j12 rama
           git checkout -b update-5.10.246 rama/android12-5.10-staging
           echo "✓ Upstream applied"
