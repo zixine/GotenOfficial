@@ -84,7 +84,7 @@ jobs:
           repo sync -c -j$(nproc --all) --no-tags --fail-fast
           echo "✓ Repo sync completed"
 
-      - - name: Apply Upstream Rama
+      - name: Apply Upstream Rama
         run: |
           cd $GKI_DIR/common
           echo "Applying upstream gotenAjje 5.10.246"
