@@ -1,4 +1,4 @@
-name: GKI KernelSU Hosted ubuntu Build
+name: GKI KernelSU-Next ubuntu Build
 
 on:
   workflow_dispatch:
@@ -170,7 +170,7 @@ jobs:
           echo "CONFIG_DEFAULT_BBR=y" >> $DEFCONFIG 
 
           echo "Patching Manual Hook"
-          curl -s https://raw.githubusercontent.com/GotenAjje/gki-builder/refs/heads/main/manual-hook-v1.4.patch | patch -p1
+          curl -s https://raw.githubusercontent.com/GotenAjje/kernel_patches/refs/heads/main/syscall_hook/min_scope_syscall_hooks_v1.4.patch | patch -p1
 
           echo "Manual Hook Patched"
 
