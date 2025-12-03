@@ -1,0 +1,236 @@
+name: KernelSU Kernel Build
+
+on:
+  workflow_dispatch:
+
+env:
+  GKI_DIR: gki
+  BRAND: "-GotenX-KowSU"
+  CLANG_VERSION: "clang-r547379"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 5120
+          swap-size-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+
+      - name: Setup Workspace
+        run: |
+          echo "================================================"
+          echo "Starting GKI Build - KowSU/SuSFS"
+          echo "Using AOSP Prebuilt Clang Toolchain"
+          echo "================================================"
+          
+          # Clean old environment and create new directory
+          echo "Cleaning old directory and preparing environment..."
+          rm -rf gki .repo
+          mkdir -p gki
+          echo "✓ Workspace created"
+
+      - name: Install Dependencies
+        run: |
+          echo "Updating system and installing dependencies..."
+          sudo apt-get update
+          sudo apt-get install -y git curl repo build-essential bc bison flex libssl-dev \
+            libelf-dev python3 python3-pip unzip zip rsync libncurses-dev lld ccache \
+            cmake ninja-build
+          echo "[✓] Dependencies Installed"
+
+      - name: Setup Clang 20 Toolchain
+        run: |
+          echo "Setting up Clang 20 Toolchain from AOSP prebuilts..."
+          cd $GKI_DIR
+          CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/62cdcefa89e31af2d72c366e8b5ef8db84caea62/clang-r547379.tar.gz"
+          CLANG_DIR="prebuilts-master/clang/host/linux-x86/$CLANG_VERSION"
+          
+          # Create a directory for the toolchain
+          mkdir -p "$CLANG_DIR"
+          
+          # Download and extract the Clang toolchain directly (without temporary files)
+          echo "Downloading and extracting $CLANG_VERSION..."
+          curl -L "$CLANG_URL" | tar -xz -C "$CLANG_DIR"
+          
+          echo "Toolchain $CLANG_VERSION has been prepared at $CLANG_DIR"
+          
+          # Add path to environment
+          echo "CLANG_DIR=$GITHUB_WORKSPACE/$GKI_DIR/$CLANG_DIR" >> $GITHUB_ENV
+
+      - name: Setup Git Identity
+        run: |
+          echo "Setup git identity"
+          git config --global user.email "kingfinix98@gmail.com"
+          git config --global user.name "goten"
+          echo "✓ Git identity configured"
+
+      - name: Init Kernel Source
+        run: |
+          cd $GKI_DIR
+          echo "Initializing and syncing kernel repository..."
+          repo init --depth=1 -u https://android.googlesource.com/kernel/manifest -b common-android12-5.10
+          echo "✓ Repo init success"
+
+      - name: Sync Kernel Source
+        run: |
+          cd $GKI_DIR
+          echo "Syncing kernel repository..."
+          repo sync -c -j$(nproc --all) --no-tags --fail-fast
+          echo "✓ Repo sync completed"
+
+      - name: Apply Upstream Rama
+        run: |
+          cd $GKI_DIR/common
+          echo "Applying upstream rama 5.10.246"
+          git remote add rama https://github.com/ramabondanp/android_kernel_common-5.10.git
+          git fetch -j12 rama
+          git checkout -b update-5.10.246 rama/android12-5.10-staging
+          echo "✓ Upstream applied"
+
+      - name: Clone KernelSU-Next
+        run: |
+          cd $GKI_DIR/common
+          echo "Cloning KernelSU-Next directly"
+          
+          # Remove existing kernelsu directory if it exists
+          git rm -rf drivers/staging/kernelsu 2>/dev/null || true
+          rm -rf drivers/staging/kernelsu
+          
+          # Clone MKSU repository directly
+          git clone https://github.com/ramabondanp/KernelSU.git -b main drivers/staging/kernelsu
+          echo "✅ KernelSU-Next (main branch) successfully cloned"
+
+      - name: Apply Compatibility Patches
+        run: |
+          cd $GKI_DIR/common
+          echo "Applying compatibility patches for Xiaomi devices"
+          sed -i '/pr_warn.*disagrees about version of symbol.*/,+1 s/.*/return 1;/' kernel/module.c
+          sed -i '/^static int drm_atomic_check_valid_clones/,/^}/d' drivers/gpu/drm/drm_atomic_helper.c
+          sed -i '/ret = drm_atomic_check_valid_clones/,/return ret;/d' drivers/gpu/drm/drm_atomic_helper.c
+          echo "✓ Compatibility fixes completed"
+
+      - name: Add Configuration Settings
+        run: |
+          echo "Changing to configuration directory: $GKI_DIR/common..."
+          cd $GKI_DIR/common
+
+          echo "Adding configuration settings to gki_defconfig..."
+          DEFCONFIG="arch/arm64/configs/gki_defconfig"
+
+          # Add KSU configuration settings
+          echo "CONFIG_KSU=y" >> $DEFCONFIG
+          echo "CONFIG_KPM=n" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> $DEFCONFIG
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_KPROBES_HOOK=n" >> $DEFCONFIG
+          
+          # Add SUSFS configuration settings
+          echo "CONFIG_KSU_SUSFS=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT_SPOOF_GENERIC=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSTAT=y" >> $DEFCONFIG
+
+          # Add additional performance settings
+          echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> $DEFCONFIG
+          echo "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" >> $DEFCONFIG
+          echo "CONFIG_ENERGY_MODEL=y" >> $DEFCONFIG
+          echo "CONFIG_HZ_500=y" >> $DEFCONFIG
+          echo "CONFIG_CPU_FREQ=y" >> $DEFCONFIG
+          echo "CONFIG_HIGH_RES_TIMERS=y" >> $DEFCONFIG
+          echo "CONFIG_CLEANCACHE=y" >> $DEFCONFIG
+
+          # Add additional tmpfs config setting
+          echo "CONFIG_TMPFS_XATTR=y" >> $DEFCONFIG
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> $DEFCONFIG
+
+      - name: Remove check_defconfig
+        run: |
+          echo "🧹 [8/9] delete check_defconfig"
+          cd $GKI_DIR
+          sed -i 's/check_defconfig//' ./common/build.config.gki
+
+      - name: Fix Clang Path
+        run: |
+          cd $GKI_DIR
+          echo "Memperbaiki path toolchain clang ke $CLANG_VERSION..."
+          
+          # Perbaiki path clang di file build.config.common
+          sed -i "s/clang-r563880b/$CLANG_VERSION/g" common/build.config.common
+          echo "✓ Clang path fixed"
+
+      - name: Finalize Build Configuration
+        run: |
+          cd $GKI_DIR
+          echo "Finalisasi konfigurasi build"
+          sed -i 's/check_defconfig//' ./common/build.config.gki
+          
+          echo "echo \"$BRAND\"" > ./common/scripts/setlocalversion
+          chmod +x ./common/scripts/setlocalversion
+          
+          DEFCONFIG2="./common/arch/arm64/configs/gki_defconfig"
+          sed -i '/^CONFIG_LOCALVERSION=/d' "$DEFCONFIG2"
+          echo "CONFIG_LOCALVERSION=\"$BRAND\"" >> "$DEFCONFIG2"
+          echo "CONFIG_LOCALVERSION_AUTO=n" >> "$DEFCONFIG2"
+          echo "✓ Konfigurasi build selesai"
+
+      - name: Build Kernel
+        run: |
+          cd $GKI_DIR
+          echo "Membangun kernel dengan optimasi performa"
+          
+          export CC="ccache clang"
+          export USE_CCACHE=1
+          export CCACHE_DIR="/tmp/ccache"
+          export PATH="$CLANG_DIR/bin:$PATH"
+          
+          ccache -M 5G
+          ccache -s
+          
+          LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh -j$(nproc)
+          echo "✓ Pembangunan kernel selesai berhasil"
+
+      - name: Find and Display Image Info
+        run: |
+          cd $GKI_DIR
+          find out -type f -name Image -exec ls -lh {} \;
+          echo ""
+          echo "=============================================="
+          echo "GKI GOTEN KSU/SuSFS +  Build Selesai!"
+          echo "=============================================="
+
+      - name: Upload Image to Pixeldrain
+        id: upload
+        run: |
+          IMAGE_PATH=$(find $GKI_DIR/out -type f -name Image | head -n 1)
+          if [ -z "$IMAGE_PATH" ]; then
+            echo "❌ Image not found"
+            exit 1
+          fi
+          RESPONSE=$(curl -s -u :53bc8bf8-584d-444e-97e3-715a1b3526bf -F file=@"$IMAGE_PATH" https://pixeldrain.com/api/file)
+          FILE_ID=$(echo "$RESPONSE" | grep -oP '"id":"\K[^"]+')
+          echo "link=https://pixeldrain.com/u/$FILE_ID" >> $GITHUB_OUTPUT
+
+      - name: Show Download Link
+        run: |
+          echo "🎉 Build Finished!"
+          echo "🔗 Link Image: ${{ steps.upload.outputs.link }}"
