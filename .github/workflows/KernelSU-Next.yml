@@ -1,4 +1,4 @@
-name: GKI KernelSU-Next ubuntu Build
+name: GKI KernelSU Hosted ubuntu Build
 
 on:
   workflow_dispatch:
@@ -94,7 +94,7 @@ jobs:
         run: |
           echo "🧩 [5/9] Add KernelSU-Next and SUSFS"
           cd gki/common
-          curl -LSs https://raw.githubusercontent.com/pershoot/KernelSU-Next/refs/heads/next-susfs/kernel/setup.sh | bash -s next-susfs
+          curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/staging/kernel/setup.sh | bash -s staging
           echo "✅ KernelSU-Next added"
 
           echo "Clonning susfs4ksu"
