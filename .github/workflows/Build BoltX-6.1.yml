@@ -1,4 +1,4 @@
-name: Build GKI BoltX-6.1 (KowSU+SUSFS- Full Fix
+name: Build GKI BoltX-6.1 (KowSU+SUSFS)
 
 on:
   workflow_dispatch:
