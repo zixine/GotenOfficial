@@ -189,7 +189,7 @@ jobs:
           ccache -M 5G
 
           cd $GKI_DIR
-          KBUILD_BUILD_USER=kaminarich KBUILD_BUILD_HOST=aetherium LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh -j$(nproc)
+          KBUILD_BUILD_USER=goten KBUILD_BUILD_HOST=aetherium LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh -j$(nproc)
           echo "[✓] Kernel build with status Success"
 
       - name: Patch Image
