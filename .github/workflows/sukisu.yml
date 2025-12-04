@@ -210,7 +210,7 @@ jobs:
             echo "❌ Image not found"
             exit 1
           fi
-          RESPONSE=$(curl -s -u :53bc8bf8-584d-444e-97e3-715a1b3526bf -F file=@"$IMAGE_PATH" https://pixeldrain.com/api/file)
+          RESPONSE=$(curl -s -u :37d09351-44a8-4bfb-b245-b04e3069e61b -F file=@"$IMAGE_PATH" https://pixeldrain.com/api/file)
           FILE_ID=$(echo "$RESPONSE" | grep -oP '"id":"\K[^"]+')
           echo "link=https://pixeldrain.com/u/$FILE_ID" >> $GITHUB_OUTPUT
 
